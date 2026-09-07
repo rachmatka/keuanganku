@@ -1,120 +1,122 @@
-// Ganti dengan URL Web App Google Apps Script kamu yang berakhiran /exec
-const API_URL = "https://script.google.com/macros/s/AKfycby9-DtkGZTxd5_4YWuP8tUkYA0Dsr8pFskcuGz8qNBH-wuqrdlylk_ghaB67hRTtQMDAQ/exec";
+<script>
+  // URL Web App Google Apps Script
+  const API_URL = "https://script.google.com/macros/s/AKfycbyno-DtkGZTxd5_4YWuP8tUkYA0Dsr8PfskCuGZ8qNBH-wuqrdlylq_ghaB67HRtTQMDAQ/exec";
 
-function muatDataDariSheets() {
-  document.getElementById('loading-overlay').classList.remove('hidden');
+  function muatDataDariSheets() {
+    document.getElementById('loading-overlay').classList.remove('hidden');
 
-  fetch(API_URL)
+    fetch(API_URL)
+      .then(res => res.json())
+      .then(data => {
+        appData.transaksi = data || [];
+        document.getElementById('loading-overlay').classList.add('hidden');
+        document.getElementById('page-dashboard').classList.remove('hidden');
+        renderDashboard();
+        renderRiwayatTable();
+      })
+      .catch(err => {
+        console.error(err);
+        showToast('Gagal memuat data dari server', 'error');
+        document.getElementById('loading-overlay').classList.add('hidden');
+      });
+  }
+
+  function handleSimpanTransaksi(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-simpan');
+    btn.disabled = true;
+    btn.innerText = "Menyimpan...";
+
+    const newTx = {
+      id: Date.now(),
+      tipe: document.getElementById('tx-tipe').value,
+      tanggal: document.getElementById('tx-tanggal').value,
+      topik: document.getElementById('tx-topik').value,
+      sub: document.getElementById('tx-sub').value.trim() || '-',
+      jumlah: Number(document.getElementById('tx-jumlah').value.replace(/[^0-9]/g, '')),
+      catatan: document.getElementById('tx-catatan').value
+    };
+
+    fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: "simpan", data: newTx })
+    })
     .then(res => res.json())
-    .then(data => {
-      appData.transaksi = data || [];
-      document.getElementById('loading-overlay').classList.add('hidden');
-      document.getElementById('page-dashboard').classList.remove('hidden');
-      renderDashboard();
-      renderRiwayatTable();
+    .then(res => {
+      btn.disabled = false;
+      btn.innerText = "Simpan Transaksi";
+      if (res.status === 'success') {
+        document.getElementById('tx-sub').value = '';
+        document.getElementById('tx-jumlah').value = '';
+        document.getElementById('tx-catatan').value = '';
+        showToast('Berhasil menyimpan transaksi!', 'success');
+        muatDataDariSheets();
+      } else {
+        showToast('Gagal: ' + res.message, 'error');
+      }
     })
     .catch(err => {
-      console.error(err);
-      showToast('Gagal memuat data dari server', 'error');
-      document.getElementById('loading-overlay').classList.add('hidden');
+      btn.disabled = false;
+      btn.innerText = "Simpan Transaksi";
+      showToast('Koneksi server gagal', 'error');
     });
-}
+  }
 
-function handleSimpanTransaksi(e) {
-  e.preventDefault();
-  const btn = document.getElementById('btn-simpan');
-  btn.disabled = true;
-  btn.innerText = "Menyimpan...";
+  function handleSimpanEditTransaksi(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-simpan-edit');
+    btn.disabled = true;
+    btn.innerText = "Memperbarui...";
 
-  const newTx = {
-    id: Date.now(),
-    tipe: document.getElementById('tx-tipe').value,
-    tanggal: document.getElementById('tx-tanggal').value,
-    topik: document.getElementById('tx-topik').value,
-    sub: document.getElementById('tx-sub').value.trim() || '-',
-    jumlah: Number(document.getElementById('tx-jumlah').value.replace(/[^0-9]/g, '')),
-    catatan: document.getElementById('tx-catatan').value
-  };
+    const updatedTx = {
+      id: document.getElementById('edit-id').value,
+      tipe: document.getElementById('edit-tipe').value,
+      tanggal: document.getElementById('edit-tanggal').value,
+      topik: document.getElementById('edit-topik').value,
+      sub: document.getElementById('edit-sub').value.trim() || '-',
+      jumlah: Number(document.getElementById('edit-jumlah').value.replace(/[^0-9]/g, '')),
+      catatan: document.getElementById('edit-catatan').value
+    };
 
-  fetch(API_URL, {
-    method: 'POST',
-    body: JSON.stringify({ action: "simpan", data: newTx })
-  })
-  .then(res => res.json())
-  .then(res => {
-    btn.disabled = false;
-    btn.innerText = "Simpan Transaksi";
-    if (res.status === 'success') {
-      document.getElementById('tx-sub').value = '';
-      document.getElementById('tx-jumlah').value = '';
-      document.getElementById('tx-catatan').value = '';
-      showToast('Berhasil menyimpan transaksi!', 'success');
-      muatDataDariSheets();
-    } else {
-      showToast('Gagal: ' + res.message, 'error');
-    }
-  })
-  .catch(err => {
-    btn.disabled = false;
-    btn.innerText = "Simpan Transaksi";
-    showToast('Koneksi server gagal', 'error');
-  });
-}
+    fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: "update", data: updatedTx })
+    })
+    .then(res => res.json())
+    .then(res => {
+      btn.disabled = false;
+      btn.innerText = "Simpan Perubahan";
+      tutupModalEdit();
+      if (res.status === 'success') {
+        showToast('Transaksi diperbarui!', 'success');
+        muatDataDariSheets();
+      } else {
+        showToast('Gagal: ' + res.message, 'error');
+      }
+    });
+  }
 
-function handleSimpanEditTransaksi(e) {
-  e.preventDefault();
-  const btn = document.getElementById('btn-simpan-edit');
-  btn.disabled = true;
-  btn.innerText = "Memperbarui...";
+  function eksekusiHapusTransaksi() {
+    if (!idTransaksiYangAkanDihapus) return;
+    const btn = document.getElementById('btn-eksekusi-hapus');
+    btn.disabled = true;
+    btn.innerText = "Menghapus...";
 
-  const updatedTx = {
-    id: document.getElementById('edit-id').value,
-    tipe: document.getElementById('edit-tipe').value,
-    tanggal: document.getElementById('edit-tanggal').value,
-    topik: document.getElementById('edit-topik').value,
-    sub: document.getElementById('edit-sub').value.trim() || '-',
-    jumlah: Number(document.getElementById('edit-jumlah').value.replace(/[^0-9]/g, '')),
-    catatan: document.getElementById('edit-catatan').value
-  };
-
-  fetch(API_URL, {
-    method: 'POST',
-    body: JSON.stringify({ action: "update", data: updatedTx })
-  })
-  .then(res => res.json())
-  .then(res => {
-    btn.disabled = false;
-    btn.innerText = "Simpan Perubahan";
-    tutupModalEdit();
-    if (res.status === 'success') {
-      showToast('Transaksi diperbarui!', 'success');
-      muatDataDariSheets();
-    } else {
-      showToast('Gagal: ' + res.message, 'error');
-    }
-  });
-}
-
-function eksekusiHapusTransaksi() {
-  if (!idTransaksiYangAkanDihapus) return;
-  const btn = document.getElementById('btn-eksekusi-hapus');
-  btn.disabled = true;
-  btn.innerText = "Menghapus...";
-
-  fetch(API_URL, {
-    method: 'POST',
-    body: JSON.stringify({ action: "hapus", id: idTransaksiYangAkanDihapus })
-  })
-  .then(res => res.json())
-  .then(res => {
-    btn.disabled = false;
-    btn.innerText = "Ya, Hapus";
-    tutupModalHapus();
-    if (res.status === 'success') {
-      showToast('Transaksi dihapus!', 'success');
-      muatDataDariSheets();
-    } else {
-      showToast('Gagal: ' + res.message, 'error');
-    }
-  });
-}
+    fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: "hapus", id: idTransaksiYangAkanDihapus })
+    })
+    .then(res => res.json())
+    .then(res => {
+      btn.disabled = false;
+      btn.innerText = "Ya, Hapus";
+      tutupModalHapus();
+      if (res.status === 'success') {
+        showToast('Transaksi dihapus!', 'success');
+        muatDataDariSheets();
+      } else {
+        showToast('Gagal: ' + res.message, 'error');
+      }
+    });
+  }
+</script>
